@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Biblioteka ŁSW — Portal czytelnika</title>
+  <link rel="stylesheet" href="styles.css?v=2" />
+  <style>
+    .pager {
+      max-width: 72rem;
+      margin: 0 auto 2rem;
+      padding: 0 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      align-items: center;
+      justify-content: center;
+    }
+    .pager .btn[disabled] { opacity: .45; cursor: default; }
+    .pager .info { color: var(--muted); font-size: .9rem; margin: 0 .5rem; }
+    .loading { opacity: .55; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <span>Łużycka Szkoła Wyższa im. Jana Benedykta Solfy · Żary</span>
+      <a href="https://lsw.edu.pl/">lsw.edu.pl</a>
+    </div>
+  </div>
+  <header class="header">
+    <div class="header-inner">
+      <a class="brand" href="index.html">
+        <span class="crest has-logo"><img src="logo-small.png" alt="ŁSW" /></span>
+        <span>
+          <h1>Biblioteka ŁSW</h1>
+          <small>Portal czytelnika</small>
+        </span>
+      </a>
+      <nav>
+        <a href="index.html" data-nav="katalog" class="active">Katalog</a>
+        <a href="logowanie.html" id="nav-login" data-nav="login">Zaloguj się</a>
+        <a href="konto.html" id="nav-konto" data-nav="konto" style="display:none">Moje konto</a>
+        <button type="button" id="btn-logout" style="display:none">Wyloguj</button>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <section class="hero">
+      <div class="hero-inner">
+        <p class="kicker">Katalog biblioteki</p>
+        <h2>Spis książek Biblioteki ŁSW</h2>
+        <div class="bar"></div>
+        <p class="lead">Sprawdź, czy interesująca Cię pozycja jest dostępna. Po zalogowaniu zobaczysz swoje wypożyczenia i terminy zwrotu.</p>
+      </div>
+    </section>
+    <div class="panel">
+      <div class="tools">
+        <div class="search">
+          <span id="ico-search"></span>
+          <input id="q" type="search" placeholder="Szukaj po tytule lub autorze…" autocomplete="off" />
+        </div>
+        <button type="button" class="btn primary" id="f-all">Wszystkie</button>
+        <button type="button" class="btn" id="f-free">Tylko dostępne</button>
+        <button type="button" class="btn" id="f-refresh" title="Odśwież" aria-label="Odśwież" id="ico-refresh-btn"></button>
+      </div>
+    </div>
+    <div class="meta">
+      <span id="count">Ładowanie katalogu…</span>
+      <span id="updated"></span>
+    </div>
+    <div class="grid" id="list"></div>
+    <div class="pager" id="pager" hidden>
+      <button type="button" class="btn" id="p-prev">← Poprzednia</button>
+      <span class="info" id="p-info"></span>
+      <button type="button" class="btn" id="p-next">Następna →</button>
+    </div>
+  </main>
+  <footer>
+    <div class="wrap">
+      <div>
+        <strong>Biblioteka Łużyckiej Szkoły Wyższej</strong>
+        <div class="bar"></div>
+        <p style="margin:0;color:#94a3b8;font-size:12px">Zapomniałeś hasła? Zgłoś się do biblioteki — bibliotekarz ustawi nowe hasło tymczasowe.</p>
+      </div>
+      <a href="https://lsw.edu.pl/">← Wróć do lsw.edu.pl</a>
+    </div>
+  </footer>
+  <script src="app.js?v=2"></script>
+  <script>
+    document.getElementById('ico-search').outerHTML = LSW.icons.search;
+    document.getElementById('f-refresh').innerHTML = LSW.icons.refresh;
+    LSW.shellActive('katalog');
+    LSW.wireLogout();
+
+var DEMO_BOOKS = [{"id": "b6", "title": "Bezpieczeństwo narodowe", "author": "Ryszard Jakubczak", "available": 4, "quantity": 4}, {"id": "b2", "title": "Lalka", "author": "Bolesław Prus", "available": 2, "quantity": 2}, {"id": "b1", "title": "Pan Tadeusz", "author": "Adam Mickiewicz", "available": 2, "quantity": 3}, {"id": "b4", "title": "Podstawy pedagogiki", "author": "Zbigniew Kwieciński", "available": 2, "quantity": 2}, {"id": "b5", "title": "Psychologia społeczna", "author": "Elliot Aronson", "available": 1, "quantity": 1}, {"id": "b3", "title": "Zarządzanie projektami", "author": "Michał Trocki", "available": 0, "quantity": 1}];
+
+    // Gdy serwer nie ma jeszcze danych (brak synchronizacji) albo API nie odpowiada,
+    // pokazujemy przykładowy katalog, żeby strona nie była pusta.
+    function demoCatalog() {
+      var q = state.q.toLowerCase();
+      var list = DEMO_BOOKS.filter(function (b) {
+        if (state.onlyFree && b.available <= 0) return false;
+        return !q || (b.title + ' ' + b.author).toLowerCase().indexOf(q) !== -1;
+      });
+      return { books: list, page: 1, pages: 1, total: list.length, catalogSize: DEMO_BOOKS.length, updatedAt: null, demo: true };
+    }
+
+    function showCatalog(d) {
+      state.page = d.page;
+      state.pages = d.pages;
+      state.total = d.total;
+      state.catalogSize = d.catalogSize;
+      document.getElementById('count').textContent =
+        'Wyświetlono ' + d.books.length + ' z ' + d.total +
+        ' (w katalogu: ' + d.catalogSize + ')';
+      document.getElementById('updated').textContent = d.demo
+        ? 'Dane przykładowe — brak synchronizacji z aplikacją'
+        : (d.updatedAt ? 'Aktualizacja: ' + LSW.fmtDate(d.updatedAt) : 'Jeszcze nie synchronizowano');
+      renderBooks(d.books || []);
+      updatePager();
+      document.getElementById('list').classList.remove('loading');
+    }
+
+    var PAGE_SIZE = 48;
+    var state = { page: 1, total: 0, pages: 1, onlyFree: false, q: '', catalogSize: 0 };
+    var debounceTimer = null;
+    var reqId = 0;
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    function renderBooks(books) {
+      var list = document.getElementById('list');
+      if (!books.length) {
+        list.innerHTML = state.catalogSize
+          ? '<div class="empty">Brak pozycji dla tego wyszukiwania.</div>'
+          : '<div class="empty">Katalog jest pusty. Uruchom synchronizację z aplikacji desktopowej (Ważne → Portal internetowy).</div>';
+        return;
+      }
+      var html = '';
+      for (var i = 0; i < books.length; i++) {
+        var b = books[i];
+        var ok = b.available > 0;
+        html +=
+          '<article class="card">' +
+            '<div class="icon">' + LSW.icons.book + '</div>' +
+            '<div style="flex:1;min-width:0">' +
+              '<div class="row">' +
+                '<h3>' + escapeHtml(b.title) + '</h3>' +
+                '<span class="badge ' + (ok ? 'ok' : 'wait') + '">' + (ok ? 'Dostępna' : 'Wypożyczona') + '</span>' +
+              '</div>' +
+              '<p class="author">' + escapeHtml(b.author) + '</p>' +
+              '<p class="qty">Dostępne: <b style="color:var(--ink)">' + b.available + '</b> z ' + b.quantity + ' egz.</p>' +
+            '</div>' +
+          '</article>';
+      }
+      list.innerHTML = html;
+    }
+
+    function updatePager() {
+      var pager = document.getElementById('pager');
+      if (state.pages <= 1) {
+        pager.hidden = true;
+        return;
+      }
+      pager.hidden = false;
+      document.getElementById('p-info').textContent =
+        'Strona ' + state.page + ' / ' + state.pages;
+      document.getElementById('p-prev').disabled = state.page <= 1;
+      document.getElementById('p-next').disabled = state.page >= state.pages;
+    }
+
+    function load() {
+      var id = ++reqId;
+      var params = new URLSearchParams();
+      params.set('page', String(state.page));
+      params.set('limit', String(PAGE_SIZE));
+      if (state.q) params.set('q', state.q);
+      if (state.onlyFree) params.set('available', '1');
+
+      document.getElementById('list').classList.add('loading');
+
+      return LSW.api('/api/catalog?' + params.toString()).then(function (d) {
+        if (id !== reqId) return;
+        if (!d.catalogSize) { showCatalog(demoCatalog()); return; }
+        showCatalog(d);
+      }).catch(function () {
+        if (id !== reqId) return;
+        showCatalog(demoCatalog());
+      });
+    }
+
+    function searchNow() {
+      state.q = (document.getElementById('q').value || '').trim();
+      state.page = 1;
+      load();
+    }
+
+    document.getElementById('q').addEventListener('input', function () {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(searchNow, 280);
+    });
+    document.getElementById('q').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        clearTimeout(debounceTimer);
+        searchNow();
+      }
+    });
+
+    document.getElementById('f-all').addEventListener('click', function () {
+      state.onlyFree = false;
+      state.page = 1;
+      document.getElementById('f-all').className = 'btn primary';
+      document.getElementById('f-free').className = 'btn';
+      load();
+    });
+    document.getElementById('f-free').addEventListener('click', function () {
+      state.onlyFree = true;
+      state.page = 1;
+      document.getElementById('f-all').className = 'btn';
+      document.getElementById('f-free').className = 'btn primary';
+      load();
+    });
+    document.getElementById('f-refresh').addEventListener('click', load);
+    document.getElementById('p-prev').addEventListener('click', function () {
+      if (state.page > 1) { state.page--; load(); window.scrollTo(0, 0); }
+    });
+    document.getElementById('p-next').addEventListener('click', function () {
+      if (state.page < state.pages) { state.page++; load(); window.scrollTo(0, 0); }
+    });
+
+    load();
+  </script>
+</body>
+</html>

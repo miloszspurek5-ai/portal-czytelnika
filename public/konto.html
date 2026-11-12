@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Moje konto — Biblioteka ŁSW</title>
+  <link rel="stylesheet" href="styles.css?v=2" />
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <span>Łużycka Szkoła Wyższa · Żary</span>
+      <a href="https://lsw.edu.pl/">lsw.edu.pl</a>
+    </div>
+  </div>
+  <header class="header">
+    <div class="header-inner">
+      <a class="brand" href="index.html">
+        <span class="crest has-logo"><img src="logo-small.png" alt="ŁSW" /></span>
+        <span><h1>Biblioteka ŁSW</h1><small>Portal czytelnika</small></span>
+      </a>
+      <nav>
+        <a href="index.html" data-nav="katalog">Katalog</a>
+        <a href="logowanie.html" id="nav-login" data-nav="login">Zaloguj się</a>
+        <a href="konto.html" id="nav-konto" data-nav="konto" class="active">Moje konto</a>
+        <button type="button" id="btn-logout">Wyloguj</button>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <div class="box" style="max-width:40rem">
+      <div id="content">Ładowanie…</div>
+    </div>
+  </main>
+  <footer>
+    <div class="wrap">
+      <div>
+        <strong>Biblioteka Łużyckiej Szkoły Wyższej</strong>
+        <div class="bar"></div>
+      </div>
+      <a href="index.html">← Katalog</a>
+    </div>
+  </footer>
+  <script src="app.js?v=2"></script>
+  <script>
+    LSW.shellActive('konto');
+    LSW.wireLogout();
+    if (!LSW.getToken()) {
+      location.href = 'logowanie.html';
+    } else {
+      LSW.api('/api/me').then((d) => {
+        const r = d.reader;
+        const today = new Date().toISOString().slice(0, 10);
+        let html = '<p style="margin:0;color:var(--navy);font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase">Moje konto</p>';
+        html += '<h2 style="margin:.4rem 0 0">' + escape(r.first + ' ' + r.last) + '</h2>';
+        html += '<div class="bar" style="width:4rem;height:2px;background:var(--ice);margin-top:.5rem"></div>';
+        html += '<p style="color:var(--muted)">Login ' + escape(r.login) + (r.major ? ' · ' + escape(r.major) : '') + '</p>';
+        html += '<h3 style="margin-top:1.5rem">Wypożyczenia</h3>';
+        if (!(d.loans || []).length) {
+          html += '<div class="empty">Brak aktywnych wypożyczeń.</div>';
+        } else {
+          html += d.loans.map((l) => {
+            const late = l.due && l.due < today;
+            return (
+              '<div class="loan">' +
+                '<div class="row">' +
+                  '<div><strong>' + escape(l.title) + '</strong><div style="color:var(--muted);font-size:.9rem">' + escape(l.author) + '</div></div>' +
+                  '<span class="badge ' + (late ? 'wait' : 'ok') + '">' + (late ? 'Po terminie' : 'W terminie') + '</span>' +
+                '</div>' +
+                '<p style="margin:.5rem 0 0;font-size:12px;color:var(--muted)">Wypożyczono ' + LSW.fmtDate(l.borrowedAt) + ' · zwrot do ' + LSW.fmtDate(l.due) + '</p>' +
+              '</div>'
+            );
+          }).join('');
+        }
+        document.getElementById('content').innerHTML = html;
+      }).catch(() => {
+        LSW.setToken(null);
+        location.href = 'logowanie.html';
+      });
+    }
+    function escape(s) {
+      return String(s || '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+  </script>
+</body>
+</html>

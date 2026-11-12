@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Zaloguj się — Biblioteka ŁSW</title>
+  <link rel="stylesheet" href="styles.css?v=2" />
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <span>Łużycka Szkoła Wyższa · Żary</span>
+      <a href="https://lsw.edu.pl/">lsw.edu.pl</a>
+    </div>
+  </div>
+  <header class="header">
+    <div class="header-inner">
+      <a class="brand" href="index.html">
+        <span class="crest has-logo"><img src="logo-small.png" alt="ŁSW" /></span>
+        <span><h1>Biblioteka ŁSW</h1><small>Portal czytelnika</small></span>
+      </a>
+      <nav>
+        <a href="index.html" data-nav="katalog">Katalog</a>
+        <a href="logowanie.html" id="nav-login" data-nav="login" class="active">Zaloguj się</a>
+        <a href="konto.html" id="nav-konto" data-nav="konto" style="display:none">Moje konto</a>
+        <button type="button" id="btn-logout" style="display:none">Wyloguj</button>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <div class="box">
+      <p class="kicker" style="color:var(--navy);font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;margin:0">Konto czytelnika</p>
+      <h2>Zaloguj się</h2>
+      <div class="bar" style="width:4rem;height:2px;background:var(--ice);margin-top:.5rem"></div>
+      <p style="color:var(--muted);font-size:.95rem">Login i hasło ustawiane są w aplikacji bibliotecznej (karta czytelnika) i synchronizowane na portal.</p>
+      <form class="form" id="form">
+        <label>Login
+          <input name="login" autocomplete="username" required />
+        </label>
+        <label>Hasło
+          <input name="password" type="password" autocomplete="current-password" required />
+        </label>
+        <p class="err" id="err" hidden></p>
+        <button class="btn primary" type="submit" style="width:100%">Wejdź do konta</button>
+      </form>
+      <div class="hint">
+        Po pierwszej synchronizacji z aplikacji desktopowej konta pojawią się automatycznie.
+        Jeśli nie możesz się zalogować — sprawdź w aplikacji, czy portal ma poprawny adres i klucz.
+      </div>
+    </div>
+  </main>
+  <footer>
+    <div class="wrap">
+      <div>
+        <strong>Biblioteka Łużyckiej Szkoły Wyższej</strong>
+        <div class="bar"></div>
+      </div>
+      <a href="index.html">← Katalog</a>
+    </div>
+  </footer>
+  <script src="app.js?v=2"></script>
+  <script>
+    LSW.shellActive('login');
+    LSW.wireLogout();
+    if (LSW.getToken()) location.href = 'konto.html';
+    document.getElementById('form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const err = document.getElementById('err');
+      err.hidden = true;
+      LSW.api('/api/login', {
+        method: 'POST',
+        body: JSON.stringify({ login: fd.get('login'), password: fd.get('password') }),
+      }).then((d) => {
+        LSW.setToken(d.token);
+        location.href = 'konto.html';
+      }).catch((ex) => {
+        err.textContent = ex.message;
+        err.hidden = false;
+      });
+    });
+  </script>
+</body>
+</html>
